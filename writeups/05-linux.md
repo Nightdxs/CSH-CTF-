@@ -2,17 +2,17 @@
 
 [← Volver al índice](../README.md)
 
-Estos retos tuvieron algo en común: la información necesaria estaba en el propio sistema. Revisar logs, archivos de configuración, puertos y tareas programadas permitió avanzar sin buscar una vulnerabilidad compleja. Los nombres de esta página corresponden a los hosts visibles en las capturas; no he recuperado todos los títulos completos de las fichas originales.
+En estos retos pude avanzar revisando el propio sistema, entre logs, archivos de configuración, puertos y tareas programadas. Los organicé con los nombres de los hosts que aparecen en las capturas, porque no conservé todas las fichas originales.
 
 ## Kotosh: tres fragmentos entre mucho ruido
 
-La terminal mostraba mensajes de retransmisiones, señal y buffers. Entre ellos aparecía una marca bastante distinta: `SIGNAL_FRAGMENT`. En lugar de leer todo el flujo, filtré esa etiqueta en los archivos del relay:
+Entre los mensajes de retransmisiones, señal y buffers aparecía la marca `SIGNAL_FRAGMENT`, así que filtré esa etiqueta en los archivos del relay para ver solo los fragmentos que interesaban:
 
 ```bash
 grep 'SIGNAL_FRAGMENT' /var/log/relay/*.log
 ```
 
-Los tres resultados estaban repartidos entre `noise.log`, `telemetry.log` y `uplink.log`, identificados como `1/3`, `2/3` y `3/3`. No había que ordenarlos por el nombre del archivo, sino por el número del fragmento.
+Los resultados estaban repartidos entre `noise.log`, `telemetry.log` y `uplink.log`, pero las marcas `1/3`, `2/3` y `3/3` daban el orden en que había que unirlos.
 
 ```bash
 printf '%s' '<fragmento-1><fragmento-2><fragmento-3>' | base64 -d
@@ -26,11 +26,11 @@ csh{c65f381972cfc20192753a866b79a543f28d02dc8226b3bb6d706b9c993e719c}
 
 ![Localización y decodificación de los fragmentos de Kotosh](../assets/kotosh.jpg)
 
-Concatenar antes de decodificar evita asumir que cada fragmento sea un bloque Base64 independiente. Lo que parecía una pantalla llena de ruido se redujo a una búsqueda por marca y una reconstrucción por orden.
+Al unir los fragmentos antes de decodificarlos no hacía falta suponer que cada uno fuera un bloque Base64 independiente, y toda aquella salida terminó reducida a tres líneas ordenadas.
 
 ## Pachacámac: el servicio también estaba dentro
 
-La captura empieza con una sesión SSH como `operator`. No conservo en ella la obtención de la contraseña inicial, así que la reconstrucción comienza desde ese acceso.
+La captura que guardé comienza con una sesión SSH como `operator`, así que explico el recorrido desde ese acceso, sin atribuirle una obtención de contraseña que no aparece en el registro.
 
 Una búsqueda en archivos de configuración encontró el `callsign` en `/etc/groundwork/relay.conf`:
 
@@ -38,13 +38,13 @@ Una búsqueda en archivos de configuración encontró el `callsign` en `/etc/gro
 grep -Rin --include='*.conf' 'callsign' /etc /opt /home 2>/dev/null
 ```
 
-Después intenté listar puertos con `ss`, pero no estaba instalado. La alternativa disponible fue:
+Para listar los puertos intenté usar `ss` y, como no estaba instalado, pasé a la alternativa disponible:
 
 ```bash
 netstat -lnt
 ```
 
-Entre los servicios aparecía el puerto 4444. Al conectarme desde la propia instancia se presentó `BUREAU COMMS RELAY` y pidió el callsign:
+En el puerto 4444 encontré `BUREAU COMMS RELAY`, que al conectarme desde la propia instancia pidió el callsign:
 
 ```bash
 nc 127.0.0.1 4444
@@ -58,13 +58,13 @@ csh{15fc392c3260a16c62a079073302e10122d0976655c7812553bebc0b13b8d90e}
 
 ![Configuración, puertos y autenticación del relay](../assets/pachacamac.jpg)
 
-El aprendizaje fue ampliar la revisión más allá del puerto de entrada. Una sesión dentro del contenedor permite descubrir servicios y configuraciones que no se ven en la pantalla inicial del reto. En este caso, las dos piezas estaban juntas: el servicio y el dato que pedía para autenticarse.
+Este reto me hizo revisar qué más había dentro del contenedor después de entrar por SSH, porque la configuración guardaba el callsign que pedía otro servicio de la misma instancia.
 
 ## Ollanta: el sufijo que cambiaba el resultado
 
-La instancia traía `groundctl`, una utilidad propia del laboratorio. La ayuda mostraba acciones para listar, iniciar, detener, habilitar y desenmascarar servicios. El estado inicial señalaba `corruptor.service` habilitado y `generator.service` enmascarado.
+La instancia traía una utilidad propia llamada `groundctl`, cuya ayuda permitía listar, iniciar, detener, habilitar y desenmascarar servicios; al revisar el estado aparecían `corruptor.service` habilitado y `generator.service` enmascarado.
 
-La primera secuencia añadió `.service` a los nombres. La herramienta respondió con nombres terminados en `.service.service` y `~/recovery.txt` seguía mostrando `CORRUPTED_...`. La salida era una pista de que la interfaz ya añadía el sufijo.
+En el primer intento añadí `.service` a los nombres, pero la herramienta respondió con `.service.service` y `~/recovery.txt` seguía corrupto, lo que apuntaba a que la interfaz ya añadía el sufijo por su cuenta.
 
 La segunda secuencia fue:
 
@@ -77,7 +77,7 @@ sudo groundctl list
 cat ~/recovery.txt
 ```
 
-El listado final mostraba `corruptor.service disabled` y `generator.service enabled`. El archivo contenía:
+Después de corregir los nombres, el listado mostraba `corruptor.service disabled` y `generator.service enabled`, mientras que el archivo ya contenía:
 
 ```text
 csh{1b28f75940ecba0ec0af687e8e64ac710e2b5b7603a5a982d38fa44a65fe1ff3}
@@ -85,7 +85,7 @@ csh{1b28f75940ecba0ec0af687e8e64ac710e2b5b7603a5a982d38fa44a65fe1ff3}
 
 ![Primer intento con sufijo y secuencia corregida en Ollanta](../assets/ollanta.jpg)
 
-Aquí fue importante comprobar el efecto del comando, en vez de tomar un mensaje de «iniciado» como prueba suficiente. La captura no contiene el código de `groundctl`, pero sí muestra que corregir los nombres produjo el estado y el archivo esperados.
+Lo que me ayudó fue volver a mirar el archivo y el listado de servicios después de los comandos, porque el mensaje de «iniciado» del primer intento no bastaba para saber si había cambiado lo que necesitaba.
 
 ## Pisac: una tarea que volvía cada minuto
 
@@ -104,7 +104,7 @@ En la crontab del usuario había esta línea:
 * * * * * /opt/groundwork/wiper.sh
 ```
 
-La captura también muestra un proceso `generator.sh`. El nombre del borrador y su ejecución cada minuto apuntaban a una tarea que podía interferir con la recuperación. La secuencia documentada retiró esa entrada y eliminó el script dentro de la instancia:
+También aparecía un proceso `generator.sh`, mientras que `wiper.sh` se ejecutaba cada minuto y podía interferir con la recuperación, así que la secuencia guardada retiró esa entrada y eliminó el script de la instancia:
 
 ```bash
 crontab -l | grep -Fv '/opt/groundwork/wiper.sh' | crontab -
@@ -120,4 +120,4 @@ La cadena transcrita de la captura es:
 csh{aef35d5055652f8795785886b9bf6be657abc24665a104d438b273c629de5a7a}
 ```
 
-No recuperé el contenido de `wiper.sh`, así que no describo su implementación como si la hubiera inspeccionado. Lo comprobable es la tarea programada, los comandos usados y la lectura posterior de la flag. Este caso me recordó que un cambio puede durar poco si hay otro proceso que lo revierte: revisar la automatización del sistema forma parte del diagnóstico.
+No conservé el contenido de `wiper.sh`, pero sí la tarea programada y la lectura de la flag después de retirarla. Me sirvió para recordar que, cuando un archivo vuelve a cambiar, conviene revisar qué proceso o automatización puede estar actuando sobre él.

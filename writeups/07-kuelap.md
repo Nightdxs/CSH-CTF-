@@ -2,11 +2,11 @@
 
 [← Volver al índice](../README.md)
 
-En las notas anteriores tenía una combinación y una flag atribuidas a Kuélap, pero faltaba la deducción. Recuperar `muralla.py` y `muralla.txt` permitió reconstruir el método y volver a comprobar el descifrado.
+De Kuélap tenía anotadas una combinación y una flag, pero al recuperar `muralla.py` y `muralla.txt` pude reconstruir cómo obtenerlas y repetir la comprobación del descifrado.
 
 ## La separación ya estaba en el verificador
 
-El programa recibe una combinación de 40 bits y la divide en dos valores: los bits de posición par forman `oeste` y los impares forman `este`. Cada mitad tiene 20 bits.
+El programa separa los 40 bits de la combinación entre `oeste` y `este`, poniendo las posiciones pares en un lado y las impares en el otro, de modo que cada mitad queda con 20 bits.
 
 Para decidir si la combinación encaja, calcula:
 
@@ -20,7 +20,7 @@ piedra(b'kuelap/oeste|', oeste) ^ piedra(b'kuelap/este|', este) == objetivo
 a43013fbb0c57bc0
 ```
 
-Probar directamente todas las combinaciones significa recorrer hasta `2^40` candidatos. Pero la comprobación se puede reorganizar:
+Recorrer las combinaciones una a una llevaría hasta `2^40` candidatos, pero la forma de la comprobación permitía reorganizarla así:
 
 ```text
 piedra(oeste) = objetivo XOR piedra(este)
@@ -35,7 +35,7 @@ La solución usa meet in the middle:
 3. Para cada una, buscar `objetivo XOR piedra(este)` en la tabla.
 4. Si hay coincidencia, volver a intercalar los bits de ambos lados.
 
-El trabajo pasa de una búsqueda de `2^40` a dos recorridos de `2^20`, a cambio de memoria para la tabla. SHA-256 no se invierte: la debilidad aprovechada es la estructura separable de la condición y el tamaño de cada mitad.
+Al guardar una mitad en una tabla, el trabajo se reduce a dos recorridos de `2^20`, aprovechando que la condición se puede separar y que cada lado es pequeño, a cambio de usar memoria para las entradas.
 
 El núcleo del [solver](../scripts/kuelap_solve.py) es:
 
@@ -68,6 +68,6 @@ La clave abre un sello AES-GCM con el nonce y el ciphertext de `muralla.txt`, us
 csh{20fd986e8befbf2e55e838946dbf5ea70f32fd450b050bc5533c4cc932b24c21}
 ```
 
-Aquí la autenticación de GCM es una comprobación adicional: con una clave, nonce, ciphertext o AAD equivocados, la operación no debe devolver un mensaje válido. Eso da más confianza que limitarse a encontrar una cadena que «parezca» una flag.
+La comprobación de GCM ayudó a confirmar el resultado, porque un error en la clave, el nonce, el ciphertext o el AAD haría fallar la autenticación en vez de devolver un mensaje válido.
 
-Los [archivos del reto necesarios](../scripts/datos/kuelap/) y el solver están incluidos. Esta reconstrucción del método y su ejecución se hicieron al preparar el writeup; no afirmo que el script de publicación sea el mismo que se usó durante la competencia.
+Dejé los [archivos necesarios](../scripts/datos/kuelap/) junto con el solver para repetir este recorrido, que reconstruí y comprobé al preparar el writeup a partir de los datos originales.

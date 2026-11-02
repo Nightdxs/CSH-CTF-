@@ -2,11 +2,11 @@
 
 [← Volver al índice](../README.md)
 
-Chavín es el caso del que recuperé una secuencia de depuración más completa. Hubo pruebas con flags locales, diferencias entre la libc de pruebas y la del reto, procesos que abortaban y, al final, una respuesta remota con la flag. Separar esas etapas fue necesario para entender qué estaba demostrado en cada momento.
+Chavín fue el que más trabajo de depuración dejó en los registros, con flags locales de prueba, diferencias entre versiones de libc y procesos que abortaban antes de llegar a la respuesta remota. Al ordenar el writeup tuve que separar esas etapas para explicar qué funcionaba en cada entorno y qué faltaba corregir.
 
 ## El problema estaba entre guardar un puntero y usarlo
 
-El servicio mantenía galerías compartidas entre varias conexiones. La estructura recuperada en la transcripción tenía tres campos:
+El servicio mantenía galerías compartidas entre varias conexiones mediante una estructura de tres campos, que pude recuperar en la transcripción:
 
 ```c
 typedef struct Galeria {
@@ -28,11 +28,11 @@ como(donde, cuanto);
 
 Mientras una conexión esperaba, otra podía ejecutar `derrumbar`, que retiraba la galería del arreglo y liberaba `g->datos` y `g`. Poner el elemento compartido a `NULL` no invalidaba las copias que ya estaban guardadas en la primera conexión.
 
-La misma ventana daba dos primitivas: `gritar` podía leer memoria liberada y `susurrar` podía escribir en ella. El reto consistió en hacer que esa memoria se reutilizara de una forma útil.
+Con esa misma ventana, `gritar` podía leer memoria liberada y `susurrar` escribir en ella, así que el siguiente paso consistía en preparar su reutilización para controlar datos que siguieran siendo accesibles.
 
 ## De un bloque liberado al control de una galería
 
-El [exploit recuperado](../scripts/chavin_exploit.py) utiliza dos conexiones, `F` y `C`. Una mantiene las operaciones que liberan y reasignan; la otra provoca el uso de los punteros guardados. La secuencia fue:
+El [exploit de Chavín](../scripts/chavin_exploit.py) utiliza dos conexiones, `F` y `C`, repartiendo las operaciones para que una libere y reasigne mientras la otra usa los punteros que había guardado, en esta secuencia:
 
 1. Preparar varias galerías y sus buffers para obtener un patrón de asignaciones conocido.
 2. Provocar una lectura después de la liberación para recuperar metadatos del heap.
@@ -48,7 +48,7 @@ mangle = (DY >> 12) ^ D
 
 `DY` es la dirección del bloque cuya lista libre se está manipulando y `D` el destino de la siguiente asignación. Son direcciones derivadas del patrón concreto del exploit, no constantes válidas para cualquier heap.
 
-Un detalle que costó intentos fue mantener la relación entre el hilo que liberaba y el que reasignaba. Los registros de depuración mostraron que cambiar esas operaciones de conexión impedía obtener el solapamiento esperado. En lugar de asumir que «liberar y volver a pedir» bastaba, hubo que reproducir el orden de asignaciones del servicio y comprobar dónde terminaba cada bloque.
+Uno de los detalles que costó intentos fue qué conexión hacía cada operación, porque cambiar el hilo que liberaba y el que reasignaba impedía obtener el solapamiento esperado. Hubo que reproducir el orden de asignaciones del servicio y comprobar dónde terminaba cada bloque para entender por qué no se reutilizaba como esperaba el exploit.
 
 ## Dos fugas para preparar la llamada final
 
@@ -68,13 +68,13 @@ Finalmente se reemplazaba `eco` por `system` y `datos` por una cadena de comando
 
 ## El error de una página
 
-Las pruebas locales llegaron a producir `csh{FLAG_LOCAL_DE_PRUEBA}`. Eso validaba una cadena en el entorno de pruebas, pero todavía no era la flag de la competencia. Contra el entorno correspondiente al reto aparecía:
+Las pruebas locales llegaron a producir `csh{FLAG_LOCAL_DE_PRUEBA}`, aunque todavía faltaba trasladar esa cadena al entorno del reto, donde aparecía este error:
 
 ```text
 malloc(): unaligned tcache chunk detected
 ```
 
-El punto que se corrigió fue el cálculo de la base del arena. El buffer usado para el leak estaba en el offset `0x1100`, ya dentro de la segunda página. Reconstruir la página a partir del enlace y tratarla como si fuera la base desplazaba los cálculos en `0x1000`.
+El error estaba en el cálculo de la base del arena: el buffer usado para el leak caía en `0x1100`, dentro de la segunda página, por lo que reconstruir su página y tratarla como la base dejaba los cálculos desplazados en `0x1000`.
 
 La corrección registrada en el script fue:
 
@@ -93,8 +93,8 @@ La fuente de este resultado es la transcripción de la sesión de Claude, no una
 
 ## Qué aprendí de los intentos fallidos
 
-La parte más valiosa fue comparar hipótesis con resultados: una carrera podía perderse antes de guardar el puntero; un bloque podía liberarse en el hilo equivocado; una diferencia de página podía invalidar todo el cálculo. Cada caso requería una comprobación distinta.
+Lo que más aprendí fue a separar las causas de cada fallo, porque perder la carrera antes de guardar un puntero, liberar desde otro hilo o equivocarse en una página podían romper el exploit de formas distintas y cada una necesitaba su propia comprobación.
 
-También apareció un problema de organización de archivos. El ZIP local llamado `chavin.zip` contiene fuentes de **Huaca**, cuyo código es diferente. Para esta reconstrucción usé el código de galerías conservado en la transcripción y el exploit correspondiente. El nombre del archivo, por sí solo, no era suficiente para atribuirle el contenido al reto.
+Al revisar los archivos apareció otra confusión: el ZIP llamado `chavin.zip` contenía fuentes de **Huaca**, por lo que tuve que apoyarme en el código de galerías conservado en la transcripción y en el exploit correspondiente para reconstruir Chavín.
 
-No volví a ejecutar esta cadena contra un servidor. Queda como documentación del laboratorio y de su depuración histórica. Los offsets del script dependen del ejecutable y de la libc usados en aquella sesión.
+Esta parte recoge la ejecución y la depuración guardadas durante el trabajo, con offsets que dependen del ejecutable y de la libc de aquella sesión; al preparar el artículo no repetí la cadena contra un servidor.

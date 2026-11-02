@@ -4,7 +4,7 @@
 
 ## Pachamama Status: cuando la contraseña deja de ser texto
 
-El primer indicio útil fue que `/api/login` aceptaba un objeto JSON en `password`. Con una contraseña normal, la aplicación debería comparar un valor concreto. Un objeto con operadores cambia la pregunta que se hace a la base de datos.
+Lo primero que me llamó la atención fue que `/api/login` aceptaba un objeto JSON en `password`, un campo donde esperaba enviar texto. Eso abría la posibilidad de pasar operadores de consulta y cambiar la comparación que hacía la aplicación.
 
 Con el usuario `pachamama_admin`, esta petición devolvió `success:true`:
 
@@ -15,7 +15,7 @@ curl -s -X POST "$U/api/login" \
   -d '{"username":"pachamama_admin","password":{"$ne":null}}'
 ```
 
-`$ne` significa «distinto de». En lugar de demostrar que conocía la contraseña, estaba haciendo que se comprobara que el campo no fuera nulo. El siguiente paso fue averiguar si ese mismo comportamiento permitía recuperar el valor, en vez de quedarme únicamente con el bypass.
+Con `$ne`, que significa «distinto de», la petición conseguía que se comprobara que el campo no fuera nulo; después de ver el éxito del login, quise comprobar si ese comportamiento también permitía recuperar el valor de la contraseña.
 
 Probé un prefijo mediante `$regex`:
 
@@ -23,16 +23,16 @@ Probé un prefijo mediante `$regex`:
 {"username":"pachamama_admin","password":{"$regex":"^csh"}}
 ```
 
-La respuesta volvió a ser positiva. La prueba para `csh{` también funcionó. Eso daba un oráculo muy sencillo: para cada prefijo candidato, el login respondía si coincidía o no.
+Tanto la prueba con `^csh` como la de `csh{` devolvieron éxito, así que ya tenía una forma de preguntar si un prefijo era correcto y avanzar un carácter a la vez.
 
-El [script de extracción](../scripts/pachamama_nosqli.py) empezaba con `csh{`, probaba el siguiente carácter y conservaba el que producía éxito. La parte importante era escapar el prefijo con `re.escape`: las llaves y cualquier otro carácter especial deben tratarse como texto dentro de la expresión regular.
+El [script de extracción](../scripts/pachamama_nosqli.py) partía de `csh{` e iba conservando el siguiente carácter que producía éxito, escapando siempre el prefijo con `re.escape` para que las llaves y los demás caracteres especiales se trataran como texto.
 
 ```python
 if matches('^' + re.escape(flag + candidate)):
     flag += candidate
 ```
 
-La primera ejecución terminó con `HTTP Error 401: Unauthorized`. En este caso, un 401 era una respuesta esperable para una conjetura equivocada, por lo que no debía detener toda la extracción. La versión recuperada del script captura `HTTPError` y lee su cuerpo para seguir evaluando candidatos.
+La primera ejecución se detuvo con `HTTP Error 401: Unauthorized`, aunque ese error era esperable cada vez que un candidato fallaba. La versión que dejé guardada captura `HTTPError` y lee el cuerpo de la respuesta para continuar con el siguiente intento.
 
 ![Pruebas con operadores y extracción de la flag de Pachamama](../assets/pachamama.jpg)
 
@@ -40,11 +40,11 @@ La primera ejecución terminó con `HTTP Error 401: Unauthorized`. En este caso,
 csh{7d40323163f3acd0bfe07bd11435c8aeaf2a78c24e96bbf04413d9c1bc096eff}
 ```
 
-Este reto me sirvió para conectar dos ideas: un bypass de autenticación puede convertirse en extracción de datos, y los tipos de una entrada JSON forman parte de la validación de seguridad. No basta con que exista un campo llamado `password`; tiene que tener el tipo y la estructura que espera la aplicación.
+Me quedé con la relación entre el bypass y la extracción: una vez que podía cambiar la condición de autenticación, las respuestas del login me servían para reconstruir la contraseña. También entendí mejor por qué validar un JSON implica comprobar el tipo de cada campo y no solo su nombre.
 
 ## Mallku Rewards: preguntar una cosa por vez
 
-En Mallku, el punto de entrada era `/api/members?filter=...`. Al principio probé filtros con texto y payloads con comillas. Las respuestas mostraron errores como `no such column: a` y errores de sintaxis. Eso ayudó a entender que el parámetro se evaluaba como una expresión SQL, en lugar de insertarse dentro de una cadena entre comillas.
+En `/api/members?filter=...` empecé probando texto y payloads con comillas, pero los errores de sintaxis y mensajes como `no such column: a` me hicieron cambiar de enfoque: el parámetro parecía entrar directamente como una expresión SQL.
 
 Las pruebas que despejaron la duda fueron estas:
 
@@ -53,7 +53,7 @@ curl -sG "$U/api/members" --data-urlencode 'filter=1=1'
 curl -sG "$U/api/members" --data-urlencode 'filter=1=2'
 ```
 
-La primera devolvía miembros. La segunda, `{"members":[]}`. Aunque no podía pedir directamente «imprime la flag», sí podía formular preguntas sobre ella y observar si la respuesta era verdadera o falsa.
+Con `1=1` aparecían miembros y con `1=2` recibía `{"members":[]}`, una diferencia suficiente para hacer preguntas sobre la flag y distinguir las respuestas verdaderas de las falsas.
 
 Después comprobé la tabla y el primer carácter:
 
@@ -65,7 +65,7 @@ curl -sG "$U/api/members" \
   --data-urlencode "filter=(SELECT substr(flag,1,1) FROM flags)='c'"
 ```
 
-El [script de Mallku](../scripts/mallku_sqli.py) usa búsqueda binaria dos veces. Primero obtiene la longitud con preguntas de la forma `length(flag) >= n`. Después compara el valor de cada carácter:
+El [script de Mallku](../scripts/mallku_sqli.py) aprovecha esa diferencia con búsqueda binaria, primero para calcular la longitud mediante `length(flag) >= n` y después para comparar el valor de cada carácter:
 
 ```sql
 (SELECT unicode(substr(flag,POSICION,1)) FROM flags LIMIT 1) > VALOR
@@ -80,29 +80,29 @@ Longitud: 69
 csh{b64794120bad36d7a851305e8235a923297b4fc998d86bd99c043c4ca9862f9a}
 ```
 
-La parte más útil fue dejar de insistir con un payload genérico y adaptar la prueba al lugar exacto donde entraba `filter`. El error de la aplicación describía ese contexto. La corrección pasa por definir en el servidor las operaciones de filtrado permitidas y parametrizar sus valores; aceptar una expresión SQL completa del cliente expone mucho más que el filtro previsto.
+Lo que me destrabó fue prestar atención al error y ajustar las pruebas al contexto de `filter`, porque seguir añadiendo comillas no ayudaba si la entrada ya se evaluaba como una expresión. Del lado del servidor, el filtro debería limitarse a operaciones definidas por la aplicación y usar parámetros para sus valores.
 
 ## Amaru Refresh: seguir el rastro de un token
 
-Amaru fue una cadena de pistas pequeñas. El HTML de la portada incluía este comentario:
+En Amaru fui siguiendo las pistas del propio portal, empezando por este comentario en el HTML de la portada:
 
 ```html
 <!-- assets listados en /static/manifest.json -->
 ```
 
-Además, `/logs` respondía 403: la ruta existía, pero pedía algún tipo de acceso. La revisión de los recursos del cliente llevó a la cookie de diagnóstico `ops_diag` (valor omitido en esta publicación). Con ella se podían consultar los registros:
+La ruta `/logs` respondía 403 y, al revisar los recursos del cliente, apareció una cookie de diagnóstico llamada `ops_diag` que permitía acceder a los registros; su valor se ha omitido en los ejemplos públicos:
 
 ```bash
 curl -s -H 'Cookie: ops_diag=<VALOR_DEL_LABORATORIO>' "$U/logs"
 ```
 
-En los logs aparecía una petición de `amaru_admin` a `/auth/refresh` con un `refresh_token` en la URL. El registro había guardado justo el secreto que permitía pedir una nueva credencial.
+Entre los registros había una petición de `amaru_admin` a `/auth/refresh` con un `refresh_token` en la URL, de modo que el propio log había conservado el dato necesario para pedir una nueva credencial.
 
 ```bash
 curl -s "$U/auth/refresh?refresh_token=<TOKEN_RECUPERADO>"
 ```
 
-La respuesta contenía un `access_token`. Mi primer intento fue usar `Authorization: Bearer`, pero `/profile` devolvió «no autenticado». Probé cómo esperaba recibirlo la aplicación: la cookie `access_token` funcionó, y también funcionó el parámetro de consulta.
+Al recibir el `access_token` probé con `Authorization: Bearer`, pero `/profile` devolvió «no autenticado», así que revisé otras formas de enviarlo hasta comprobar que la aplicación aceptaba la cookie `access_token` y también el parámetro de consulta.
 
 ```bash
 curl -s -H 'Cookie: access_token=<TOKEN_RECIBIDO>' "$U/profile"
@@ -114,6 +114,6 @@ La respuesta incluía `role: admin`, `username: amaru_admin` y:
 csh{dcbd9ba98d35568f8b2098027350ed0d9785633aa4eaa1526d9a25b1b31f6bac}
 ```
 
-La captura original contiene valores de sesión del laboratorio y se conserva fuera de la publicación pública. Los ejemplos de esta sección usan marcadores en lugar de esos valores.
+Dejé la captura con los valores de sesión fuera del repositorio público y utilicé marcadores en los ejemplos para conservar la explicación sin publicar esos datos.
 
-No hizo falta modificar ni falsificar un JWT. La cadena consistió en recuperar un token válido, canjearlo y presentarlo como esperaba el servicio. Lo que aprendí aquí fue a revisar también los recursos del frontend y los mecanismos de diagnóstico: una ruta «solo de soporte» puede terminar exponiendo la sesión de otro usuario si sus controles y sus registros están mal planteados.
+La solución terminó pasando por un token válido que había quedado expuesto en los registros, y el intento con Bearer me recordó que también había que comprobar cómo lo recibía el servicio. Desde este reto presto más atención a los recursos del frontend y a las funciones de diagnóstico, porque pueden revelar información suficiente para completar una cadena de acceso.

@@ -2,13 +2,13 @@
 
 [← Volver al índice](../README.md)
 
-Para estos dos retos conservaba archivos suficientes como para volver a comprobar la extracción. Los scripts incluidos no necesitan un servicio remoto y producen los mismos valores que aparecían en el historial.
+De estos dos retos conservaba los archivos necesarios para repetir la extracción, y los scripts incluidos devuelven los mismos valores que aparecían en el historial sin depender de un servicio remoto.
 
 ## Inti Glyph: dos XOR antes y después de la comparación
 
-El análisis de `inti_glyph` llevó a una comparación con `strcmp`. Antes se transformaban diez bytes mediante XOR con `0x4f`. Si la palabra coincidía, otra región de 69 bytes se transformaba con XOR `0x5a` para imprimir la flag.
+Al seguir el flujo de `inti_glyph` apareció una comparación con `strcmp`, precedida por un XOR con `0x4f` sobre diez bytes; si la palabra coincidía, el programa aplicaba XOR `0x5a` a otra región de 69 bytes y mostraba la flag.
 
-En el archivo original, las regiones estaban en los offsets de archivo `0x20a0:0x20aa` y `0x20c0:0x2105`. No deben confundirse esos offsets con direcciones virtuales de un proceso.
+Las regiones estaban en `0x20a0:0x20aa` y `0x20c0:0x2105`, posiciones dentro del archivo original que había que distinguir de las direcciones virtuales del proceso.
 
 La extracción podía hacerse sin ejecutar el ELF:
 
@@ -28,13 +28,13 @@ inti_raymi
 csh{ca2e96797a399eed614d52fbee389dfc595976b8f502e47161968745457d5c7d}
 ```
 
-El repositorio conserva únicamente esas regiones codificadas en [un JSON](../scripts/datos/inti-glyph.json), junto con un [decodificador](../scripts/inti_glyph_decode.py). Así se puede comprobar la operación sin distribuir un ejecutable ni introducir en el script la respuesta ya descifrada.
+Guardé esas dos regiones codificadas en [un JSON](../scripts/datos/inti-glyph.json) y preparé un [decodificador](../scripts/inti_glyph_decode.py) para poder repetir la operación con los bytes extraídos, sin tener que ejecutar el ELF.
 
-El aprendizaje fue seguir la transformación que hace el programa. Una cadena que no aparece legible con `strings` puede seguir estando almacenada de forma recuperable. En este reto, la comparación y los dos bucles XOR explicaban tanto la palabra de entrada como la salida.
+Seguir los dos bucles XOR me permitió entender de dónde salían la palabra y la flag, y ver que una cadena que no aparece legible con `strings` puede seguir guardada en una forma fácil de recuperar.
 
 ## Chasqui Relay: usar el codificador como especificación
 
-El paquete de Chasqui incluía `encoder.sv` y `dump.txt`. El primero describía un codificador Hamming (7,4): cuatro bits de datos se convertían en siete bits mediante tres bits de paridad.
+Con Chasqui venían `encoder.sv` y `dump.txt`, y el primero daba la especificación del Hamming (7,4) usado para convertir cuatro bits de datos en siete con tres bits de paridad.
 
 El orden de salida era:
 
@@ -56,7 +56,7 @@ En vez de asumir el orden de otra implementación de Hamming, usé esas ecuacion
 distance = sum(a != b for a, b in zip(received, valid_word))
 ```
 
-Se elige la palabra válida más cercana, con distancia máxima de uno. Después se recupera su nibble de datos y se unen dos nibbles para formar cada byte.
+El decodificador elige la palabra válida más cercana con distancia máxima de uno, recupera su nibble de datos y lo une al siguiente para formar cada byte.
 
 Hamming (7,4) permite corregir un error por palabra bajo ese modelo. El procedimiento no demuestra que nunca existan errores múltiples: sin redundancia adicional, algunos pueden parecer una palabra cercana a otra distinta. En este archivo, el texto obtenido y la coincidencia con la extracción histórica apoyan el resultado.
 
@@ -71,6 +71,6 @@ Correcciones de distancia 1: 83
 csh{f4a10c95fa25f3c1de8e033dcaa86ee8cbb6f037f0a7b09df05a9f7b3487b75b}
 ```
 
-Esto también resolvió un dato suelto de mis notas: esa flag sí podía atribuirse a **Chasqui Relay**. El resumen inicial la conservaba sin reto asignado; volver al archivo y al codificador permitió cerrar la relación.
+Al repetir la extracción también pude atribuir esta flag a **Chasqui Relay**, porque en el primer resumen la había conservado sin un reto asignado.
 
 Los [datos](../scripts/datos/chasqui/) y el [decodificador completo](../scripts/chasqui_decode.py) están incluidos para reproducir la comprobación.

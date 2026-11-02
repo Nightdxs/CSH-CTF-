@@ -2,9 +2,9 @@
 
 **Jhon Paul Mejia Quispe · NIGHTMAR3 · Universidad Nacional de Ingeniería**
 
-El 30 de octubre participé en el CTF de CSH CON, organizado por Cyber Security Hub de UTEC. Terminé en **tercer lugar, con 44 retos y 11 438 puntos**.
+El 30 de octubre participé en el CTF de CSH CON, organizado por Cyber Security Hub de UTEC, donde terminé en **tercer lugar con 44 retos y 11 438 puntos**, usando el alias NIGHTMAR3 y representando a la UNI.
 
-Quise dejar algo más útil que una lista de flags. Este repositorio reúne una selección de los retos para los que pude recuperar comandos, capturas, código o resultados: cómo reconocí el problema, qué pruebas ayudaron a entenderlo y qué detalles hicieron funcionar la solución. También recojo los intentos que quedaron a medias, porque revisar por qué fallaron forma parte del aprendizaje.
+Después de la competencia me puse a ordenar los comandos, las capturas y los scripts que había guardado para explicar cómo fui avanzando en los retos, desde las primeras pruebas hasta los detalles que hicieron funcionar cada solución. Dejé también los intentos que quedaron a medias, porque volver sobre los errores me ayudó a entender cosas que durante el CTF había pasado por alto.
 
 ![Marcador final de CSH CON CTF 2026: tercer puesto de NIGHTMAR3](assets/resultados.jpg)
 
@@ -20,9 +20,9 @@ Quise dejar algo más útil que una lista de flags. Este repositorio reúne una 
 | Reversing y codificación | [Inti Glyph y Chasqui Relay](writeups/06-reversing-y-codificacion.md) | XOR, lectura de un ELF y corrección Hamming (7,4) |
 | Criptografía | [Kuélap](writeups/07-kuelap.md) | Meet in the middle y verificación AES-GCM |
 
-Son **14 reconstrucciones de soluciones y 4 análisis adicionales de código web**. Esta selección no equivale a documentar los 44 retos del marcador. Los temas de la tabla describen el contenido técnico; no pretenden sustituir las categorías oficiales.
+Por ahora reuní **14 soluciones reconstruidas y 4 análisis adicionales de código web**, una parte de los 44 retos del marcador para la que pude recuperar suficiente material. Los agrupé por los temas que trabajé en cada uno para que sea más fácil elegir por dónde empezar.
 
-## Qué demuestra este trabajo
+## Lo que más trabajé
 
 - **Razonamiento a partir de respuestas:** convertir errores SQL, diferencias de autenticación o una lista vacía en pruebas concretas.
 - **Lectura de código y ensamblador:** seguir cómo llega una entrada a una consulta, una variable de rol o una dirección de retorno.
@@ -32,7 +32,7 @@ Son **14 reconstrucciones de soluciones y 4 análisis adicionales de código web
 
 ## Scripts y reproducción
 
-Los [scripts](scripts/README.md) incluyen los exploits recuperados de la sesión y tres decodificadores preparados para esta publicación. Chasqui, Inti Glyph y Kuélap se volvieron a comprobar con los datos disponibles; no necesitan conectarse a una instancia.
+En [scripts](scripts/README.md) están los **13 archivos de código**, los datos de ejemplo y las indicaciones de uso; para esta publicación volví a comprobar Chasqui, Inti Glyph y Kuélap, así que esas tres soluciones se pueden reproducir sin conectarse a ninguna instancia.
 
 ```bash
 python3 -m venv .venv
@@ -43,13 +43,13 @@ python3 scripts/inti_glyph_decode.py
 python3 scripts/kuelap_solve.py
 ```
 
-Los exploits remotos dependen del binario y del entorno originales. El detalle de qué se verificó está en [reproducción y evidencias](docs/VERIFICACION.md).
+Para los exploits remotos hace falta el binario y el entorno correspondientes, por eso dejé explicado qué pude volver a comprobar en [reproducción y evidencias](docs/VERIFICACION.md), además de un [índice de herramientas y archivos](docs/HERRAMIENTAS.md).
 
 ## Sobre esta reconstrucción
 
-El texto está escrito después de la competencia a partir de mis notas, capturas, archivos y conversaciones de trabajo con ChatGPT/Codex y Claude. La explicación y las comprobaciones se organizaron con asistencia de estas herramientas. Las salidas de terminal citadas proceden de los registros o de las verificaciones locales indicadas. Las capturas muestran obtención de flags; salvo el resultado global del marcador, no conservo una pantalla de aceptación para cada una.
+Preparé el writeup después de la competencia a partir de mis notas, archivos, capturas y conversaciones con ChatGPT/Codex y Claude, que también me ayudaron a organizar la explicación y las comprobaciones. Las salidas que incluyo vienen de esos registros o de las verificaciones locales indicadas; aunque las capturas muestran las flags obtenidas, no guardé la pantalla de aceptación de cada envío.
 
-Las imágenes se conservan a su resolución original y se pueden abrir para leer el texto completo. Los materiales del reto incluidos como datos de ejemplo mantienen su atribución a CSH CON CTF 2026.
+Las capturas conservan su resolución original para poder abrirlas y leer los comandos con calma, mientras que los materiales usados como datos de ejemplo mantienen su atribución a CSH CON CTF 2026.
 
 También dejé [notas de los retos pendientes](docs/NOTAS-PENDIENTES.md) y un [texto para compartir el proyecto en LinkedIn](docs/LINKEDIN.md).
 
