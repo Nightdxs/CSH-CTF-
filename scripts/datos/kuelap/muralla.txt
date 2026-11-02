@@ -1,0 +1,4 @@
+; La muralla de Kuelap. La entrada es un pasadizo de 40 bits.
+; ENCAJE es lo que tienen que dar las dos piedras juntas.
+ENCAJE a43013fbb0c57bc0
+SELLO c855c47526acb8ec7cc173ef 8d1ec02a97a87bfde898712121c3c8649365ffd7ce80f61a4d7ab3f37ae162ffa14b563589b4ee4bcb3e342a7c2743760c2a9ac80971e9846d2c6653ccae5f6ebd32a064cc4863856d3637373cc6ae02b3f5d8f9fa
